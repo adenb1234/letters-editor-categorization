@@ -1,11 +1,5 @@
 import streamlit as st
 import pandas as pd
-import openai
-import os
-
-# Set OpenAI API key
-openai.api_key = st.secrets["openai_api_key"]
-
 from openai import OpenAI
 
 # Initialize the OpenAI client
@@ -24,7 +18,6 @@ def generate_content(gpt_assistant_prompt: str, gpt_user_prompt: str) -> dict:
     )
     response_text = response.choices[0].message.content
     tokens_used = response.usage.total_tokens
-
     return {"response": response_text, "tokens_used": tokens_used}
 
 def classify_response(response, categories):
@@ -33,24 +26,23 @@ def classify_response(response, categories):
 Classify the following letter to the editor response into ONE of the following categories:
 {categories}
 If it doesn't fit into any of these categories, classify it as 'Other'.
-
 Only provide ONE category as the main classification. This should be the most prioritized issue by the letter, which will likely be the one the letter addresses in more depth or, if equal in depth, the first issue named. Under no circumstances should multiple categories be listed for the main classification.
-
 Response: {response}
 """
-
-    result = generate_content(gpt_assistant_prompt, gpt_user_prompt)
-    response_text = result['response'].strip()
-
-    main_label = "Main Classification:"
-
     try:
-        main_category = response_text.split(main_label)[1].strip()
-    except IndexError:
-        st.error(f"Unexpected response format: {response_text}")
-        return "Error"
-
-    return main_category
+        result = generate_content(gpt_assistant_prompt, gpt_user_prompt)
+        response_text = result['response'].strip()
+        main_label = "Main Classification:"
+        try:
+            main_category = response_text.split(main_label)[1].strip()
+            st.write(f"Classified as: {main_category}")  # Debug output
+            return main_category
+        except IndexError:
+            st.error(f"Unexpected response format: {response_text}")
+            return "Error: Unexpected format"
+    except Exception as e:
+        st.error(f"Error in classification: {str(e)}")
+        return f"Error: {str(e)}"
 
 st.title("Letters to the Editor Categorization App")
 
@@ -78,8 +70,12 @@ if uploaded_file is not None:
         progress_bar = st.progress(0)
         for i, row in df.iterrows():
             if pd.isna(row['Main Category']):
-                main_category = classify_response(row['answer'], categories_string)
-                df.at[i, 'Main Category'] = main_category
+                try:
+                    main_category = classify_response(row['answer'], categories_string)
+                    df.at[i, 'Main Category'] = main_category
+                except Exception as e:
+                    st.error(f"Error processing row {i}: {str(e)}")
+                    df.at[i, 'Main Category'] = f"Error: {str(e)}"
             progress_bar.progress((i + 1) / len(df))
 
         # Display classified data
@@ -97,4 +93,3 @@ if uploaded_file is not None:
         st.write("Summary Statistics")
         category_counts = df['Main Category'].value_counts()
         st.bar_chart(category_counts)
-      
