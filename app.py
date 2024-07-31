@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 from openai import OpenAI
+import re
 
 # Initialize the OpenAI client
 client = OpenAI(api_key=st.secrets["openai_api_key"])
@@ -27,21 +28,22 @@ Classify the following letter to the editor response into ONE of the following c
 {categories}
 If it doesn't fit into any of these categories, classify it as 'Other'.
 Only provide ONE category as the main classification. This should be the most prioritized issue by the letter, which will likely be the one the letter addresses in more depth or, if equal in depth, the first issue named. Under no circumstances should multiple categories be listed for the main classification.
+Respond with ONLY the category number and name, e.g. '1. Category Name'.
 Response: {response}
 """
     try:
         result = generate_content(gpt_assistant_prompt, gpt_user_prompt)
         response_text = result['response'].strip()
         
-        # Check if the response contains any of the expected categories
-        for category in categories.split('\n') + ['Other']:
-            if category.lower() in response_text.lower():
-                st.write(f"Classified as: {category}")  # Debug output
-                return category
-        
-        # If no category is found, return the full response
-        st.write(f"Classified as: {response_text}")  # Debug output
-        return response_text
+        # Extract the category number and name
+        match = re.match(r'(\d+\.\s*)?(.+)', response_text)
+        if match:
+            category = match.group(2).strip()
+            st.write(f"Classified as: {category}")  # Debug output
+            return category
+        else:
+            st.write(f"Unexpected format: {response_text}")  # Debug output
+            return response_text
 
     except Exception as e:
         st.error(f"Error in classification: {str(e)}")
@@ -58,7 +60,11 @@ if uploaded_file is not None:
 
     # Step 2: Category Input
     st.write("Specify the categories for classification.")
-    categories = st.text_area("Enter categories (one per line)", value="")
+    st.write("Please number your categories and be inclusive in your categorization. For example:")
+    st.write("1. Confronting the war in Ukraine / countering Russia / helping NATO")
+    st.write("2. Israel-Gaza conflict / Middle East peace process")
+    st.write("3. Climate change and environmental policies")
+    categories = st.text_area("Enter categories (numbered, one per line)", value="")
 
     if st.button("Classify Letters"):
         categories_list = categories.split('\n')
