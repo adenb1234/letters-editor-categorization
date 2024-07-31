@@ -6,20 +6,24 @@ import os
 # Set OpenAI API key
 openai.api_key = st.secrets["openai_api_key"]
 
+from openai import OpenAI
+
+# Initialize the OpenAI client
+client = OpenAI(api_key=st.secrets["openai_api_key"])
+
 def generate_content(gpt_assistant_prompt: str, gpt_user_prompt: str) -> dict:
     messages = [
         {"role": "system", "content": gpt_assistant_prompt},
         {"role": "user", "content": gpt_user_prompt}
     ]
-    response = openai.ChatCompletion.create(
+    response = client.chat.completions.create(
         model="gpt-4",
         messages=messages,
         temperature=0.2,
-        max_tokens=256,
-        frequency_penalty=0.0
+        max_tokens=256
     )
-    response_text = response.choices[0]['message']['content']
-    tokens_used = response['usage']['total_tokens']
+    response_text = response.choices[0].message.content
+    tokens_used = response.usage.total_tokens
 
     return {"response": response_text, "tokens_used": tokens_used}
 
