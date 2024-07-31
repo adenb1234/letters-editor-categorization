@@ -32,14 +32,17 @@ Response: {response}
     try:
         result = generate_content(gpt_assistant_prompt, gpt_user_prompt)
         response_text = result['response'].strip()
-        main_label = "Main Classification:"
-        try:
-            main_category = response_text.split(main_label)[1].strip()
-            st.write(f"Classified as: {main_category}")  # Debug output
-            return main_category
-        except IndexError:
-            st.error(f"Unexpected response format: {response_text}")
-            return "Error: Unexpected format"
+        
+        # Check if the response contains any of the expected categories
+        for category in categories.split('\n') + ['Other']:
+            if category.lower() in response_text.lower():
+                st.write(f"Classified as: {category}")  # Debug output
+                return category
+        
+        # If no category is found, return the full response
+        st.write(f"Classified as: {response_text}")  # Debug output
+        return response_text
+
     except Exception as e:
         st.error(f"Error in classification: {str(e)}")
         return f"Error: {str(e)}"
@@ -72,6 +75,8 @@ if uploaded_file is not None:
             if pd.isna(row['Main Category']):
                 try:
                     main_category = classify_response(row['answer'], categories_string)
+                    if main_category.startswith("Error:"):
+                        st.error(f"Error processing row {i}: {main_category}")
                     df.at[i, 'Main Category'] = main_category
                 except Exception as e:
                     st.error(f"Error processing row {i}: {str(e)}")
